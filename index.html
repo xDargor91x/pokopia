@@ -977,6 +977,33 @@ const ITEMS=[
 const CONFLICTS={Bright:'Dark',Dark:'Bright',Cool:'Warm',Warm:'Cool',Dry:'Humid',Humid:'Dry'};
 const HABI_E={Bright:'☀️',Dark:'🌑',Cool:'❄️',Warm:'🔥',Dry:'🏜️',Humid:'🌿'};
 
+// ─────────────────────────────────────────────
+// PERSISTENCE (localStorage)
+// ─────────────────────────────────────────────
+const SAVE_KEY = 'pokopia_houses_v1';
+
+function saveData() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ houses, activeId }));
+  } catch(e) { console.warn('Save failed:', e); }
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed.houses && Array.isArray(parsed.houses)) {
+      houses = parsed.houses;
+      activeId = parsed.activeId || null;
+      // Validate activeId still exists
+      if (activeId && !houses.find(h => h.id === activeId)) {
+        activeId = houses.length ? houses[0].id : null;
+      }
+    }
+  } catch(e) { console.warn('Load failed:', e); }
+}
+
 let houses=[], activeId=null, modalSize=4;
 
 function uid(){ return Date.now()+Math.random(); }
@@ -1015,6 +1042,7 @@ function createHouse(){
   houses.push(h);
   closeModal();
   selectHouse(h.id);
+  saveData();
 }
 document.getElementById('modalName').addEventListener('keydown',e=>{if(e.key==='Enter')createHouse();});
 
@@ -1040,9 +1068,10 @@ function delHouse(e,id){
   if(!confirm('Delete this house?'))return;
   houses=houses.filter(h=>h.id!==id);
   if(activeId===id)activeId=houses.length?houses[0].id:null;
+  saveData();
   renderSidebar(); renderMain();
 }
-function selectHouse(id){ activeId=id; renderSidebar(); renderMain(); }
+function selectHouse(id){ activeId=id; saveData(); renderSidebar(); renderMain(); }
 
 // MAIN
 function renderMain(){
@@ -1095,12 +1124,13 @@ function renderMain(){
 
 function renameHouse(v){
   const h=houses.find(x=>x.id===activeId);
-  if(h){h.name=v.trim()||h.name;renderSidebar();}
+  if(h){h.name=v.trim()||h.name; saveData(); renderSidebar();}
 }
 function resizeHouse(n){
   const h=houses.find(x=>x.id===activeId);if(!h)return;
   if(h.residents.length>n&&!confirm(`Shrinking to ${n} will remove ${h.residents.length-n} resident(s). Continue?`))return;
   h.residents=h.residents.slice(0,n);h.size=n;
+  saveData();
   renderSidebar();renderMain();
 }
 
@@ -1177,12 +1207,14 @@ function clickPoke(name,asnOther,incompat,noData){
   }
   if(h.residents.length>=h.size){alert(`House is full! (${h.size} spots)`);return;}
   h.residents.push(name);
+  saveData();
   renderSidebar();renderSlots();renderGrid();renderSuggestions();
 }
 function removePokemon(name){
   const h=houses.find(x=>x.id===activeId);if(!h)return;
   if(h.confirmed)return; // locked when confirmed
   h.residents=h.residents.filter(n=>n!==name);
+  saveData();
   renderSidebar();renderSlots();renderGrid();renderSuggestions();
 }
 
@@ -1252,6 +1284,7 @@ function addFromSug(name){
   const h=houses.find(x=>x.id===activeId);
   if(!h||h.residents.length>=h.size||h.residents.includes(name))return;
   h.residents.push(name);
+  saveData();
   renderSidebar();renderSlots();renderGrid();renderSuggestions();
 }
 
@@ -1260,6 +1293,7 @@ function confirmHouse(){
   if(!h||h.residents.length===0)return;
   h.confirmed=true;
   h.furnishings=h.furnishings||[];
+  saveData();
   renderSidebar();renderMain();
 }
 function unconfirmHouse(){
@@ -1270,6 +1304,7 @@ function unconfirmHouse(){
     h.furnishings=[];
   }
   h.confirmed=false;
+  saveData();
   renderSidebar();renderMain();
 }
 
@@ -1318,12 +1353,14 @@ function itemPtsForPokemon(itemName, pokeName){
 
 function addFurnishing(itemName){
   const h=houses.find(x=>x.id===activeId);if(!h)return;
-  h.furnishings.push(itemName); // allow duplicates
+  h.furnishings.push(itemName);
+  saveData();
   renderComfort();
 }
 function removeFurnishing(idx){
   const h=houses.find(x=>x.id===activeId);if(!h)return;
   h.furnishings.splice(idx,1);
+  saveData();
   renderComfort();
 }
 
@@ -1489,7 +1526,8 @@ function renderOtherItems(){
     </div>`).join('')||`<div style="color:var(--muted);font-size:0.78rem;padding:8px 0">No items match your search.</div>`;
 }
 
-// Init
+// Init — load saved data first
+loadData();
 renderSidebar();renderMain();
 
 // Service Worker registration

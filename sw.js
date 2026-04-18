@@ -1,4 +1,4 @@
-const CACHE = 'pokopia-v1';
+const CACHE = 'pokopia-v2';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
